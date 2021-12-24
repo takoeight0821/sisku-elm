@@ -1,30 +1,61 @@
 module Main exposing (..)
 
 import Browser
-import Html exposing (Attribute, Html, div, input, text)
+import Html exposing (Html, div, input, li, text, ul)
 import Html.Attributes exposing (placeholder, value)
 import Html.Events exposing (onInput)
+import Http
 import Json.Decode as Json exposing (Decoder, int, list, oneOf, string, succeed)
 import Json.Decode.Pipeline exposing (optional, required)
+import Json.Encode as E
 
 
 main : Program () Model Msg
 main =
-    Browser.sandbox { init = init, update = update, view = view }
+    Browser.element { init = init, update = update, view = view, subscriptions = subscriptions }
 
 
 type alias Model =
-    { content : String
-    }
+    { query : String, hits : List Hit }
 
 
-init : Model
-init =
-    { content = "" }
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( { query = "", hits = [] }, Cmd.none )
+
+
+fetchSearchResults : String -> Cmd Msg
+fetchSearchResults query =
+    Http.request
+        { method = "POST"
+        , headers = []
+        , url = "http://localhost:9200/hovercraft/_search"
+        , body =
+            Http.jsonBody
+                (E.object
+                    [ ( "size", E.float 10000 )
+                    , ( "query"
+                      , E.object
+                            [ ( "match"
+                              , E.object
+                                    [ ( "hover.contents.value"
+                                      , E.object [ ( "query", E.string (Debug.log "query" query) ), ( "fuzziness", E.string "AUTO" ) ]
+                                      )
+                                    ]
+                              )
+                            ]
+                      )
+                    ]
+                )
+        , expect = Http.expectJson Hits hitsDecoder
+        , timeout = Nothing
+        , tracker = Nothing
+        }
 
 
 type Msg
     = Change String
+    | Hits (Result Http.Error (List Hit))
 
 
 
@@ -107,8 +138,8 @@ hovercraftDecoder : Decoder Hovercraft
 hovercraftDecoder =
     succeed Hovercraft
         |> required "hover" hoverDecoder
-        |> required "definitions" (list definitionDecoder)
-        |> required "moniker" (list monikerDecoder)
+        |> optional "definitions" (list definitionDecoder) []
+        |> optional "moniker" (list monikerDecoder) []
 
 
 hoverDecoder : Decoder Hover
@@ -169,19 +200,62 @@ monikerDecoder =
         |> optional "kind" (Json.map Just string) Nothing
 
 
-update : Msg -> Model -> Model
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        Change newContent ->
-            { model | content = newContent }
+        Change newQuery ->
+            ( { model
+                | query = newQuery
+              }
+            , fetchSearchResults newQuery
+            )
+
+        Hits (Ok hits) ->
+            ( { model
+                | hits = hits
+              }
+            , Cmd.none
+            )
+
+        Hits (Err err) ->
+            let
+                _ =
+                    Debug.log "Err" (Debug.toString err)
+            in
+            ( model, Cmd.none )
+
+
+subscriptions : Model -> Sub Msg
+subscriptions _ =
+    Sub.none
 
 
 view : Model -> Html Msg
 view model =
     div []
-        [ input [ placeholder "Text to search", value model.content, onInput Change ] []
-        , div [] [ text model.content ]
+        [ input [ placeholder "Text to search", value model.query, onInput Change ] []
+        , div []
+            [ text
+                (if String.isEmpty model.query then
+                    "Please enter a search term"
+
+                 else
+                    "Searching for " ++ model.query
+                )
+            ]
+        , div []
+            [ if List.isEmpty model.hits then
+                text "No results"
+
+              else
+                ul [] (List.map viewHit model.hits)
+            ]
         ]
+
+
+viewHit : Hit -> Html Msg
+viewHit hit =
+    li [] [ text hit.source.hover.contents.value ]
 
 
 exampleJson : String
@@ -246,9 +320,14 @@ exampleJson =
 }
 """
 
+
+
 -- | The test data that has 3 hits.
+
+
 exampleJsonMultiple : String
-exampleJsonMultiple = """
+exampleJsonMultiple =
+    """
 {
     "hits": {
         "total": {
