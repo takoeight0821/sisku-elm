@@ -245,7 +245,7 @@ view model =
     layout [ padding 30 ] <|
         el [] <|
             column []
-                [ Input.text []
+                [ Input.text [ Input.focusedOnLoad ]
                     { onChange = Change
                     , text = model.query
                     , placeholder = Just <| Input.placeholder [] <| text "Type here"
@@ -260,7 +260,7 @@ view model =
                     text "No results"
 
                   else
-                    column [] (List.map viewHit model.hits)
+                    column [ spacing 7 ] (List.map viewHit model.hits)
                 ]
 
 
@@ -270,7 +270,12 @@ viewHit hit =
         Ok contents ->
             case Markdown.render Markdown.defaultHtmlRenderer contents of
                 Ok rendered ->
-                    column [] (List.map html rendered)
+                    column
+                        [ Border.width 2
+                        , Border.rounded 6
+                        , Border.color <| rgb255 0xC0 0xC0 0xC0
+                        ]
+                        (List.map (el [ paddingXY 10 0 ] << html) rendered)
 
                 Err err ->
                     text err
