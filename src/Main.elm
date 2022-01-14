@@ -8,6 +8,8 @@ import Http
 import Json.Decode as Json exposing (Decoder, int, list, oneOf, string, succeed)
 import Json.Decode.Pipeline exposing (optional, required)
 import Json.Encode as E
+import Markdown.Parser as Markdown
+import Markdown.Renderer as Markdown
 
 
 main : Program () Model Msg
@@ -24,12 +26,14 @@ init _ =
     ( { query = "", hits = [] }, Cmd.none )
 
 
+baseUrl = "http://192.168.0.13:9200"
+
 fetchSearchResults : String -> Cmd Msg
 fetchSearchResults query =
     Http.request
         { method = "POST"
         , headers = []
-        , url = "http://localhost:9200/hovercraft/_search"
+        , url = baseUrl ++ "/hovercraft/_search"
         , body =
             Http.jsonBody
                 (E.object
@@ -255,4 +259,14 @@ view model =
 
 viewHit : Hit -> Html Msg
 viewHit hit =
-    li [] [ text hit.source.hover.contents.value ]
+    case Markdown.parse hit.source.hover.contents.value of
+        Ok contents ->
+            case Markdown.render Markdown.defaultHtmlRenderer contents of
+                Ok rendered ->
+                    li [] rendered
+
+                Err err ->
+                    li [] [ text err ]
+
+        Err err ->
+            li [] (List.map (\e -> text (Markdown.deadEndToString e)) err)
