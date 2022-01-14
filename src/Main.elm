@@ -13,6 +13,7 @@ import Json.Decode.Pipeline exposing (optional, required)
 import Json.Encode as E
 import Markdown.Parser as Markdown
 import Markdown.Renderer as Markdown
+import ElmUiRenderer exposing (elmUiRenderer)
 
 
 main : Program () Model Msg
@@ -268,14 +269,14 @@ viewHit : Hit -> Element Msg
 viewHit hit =
     case Markdown.parse hit.source.hover.contents.value of
         Ok contents ->
-            case Markdown.render Markdown.defaultHtmlRenderer contents of
+            case Markdown.render elmUiRenderer contents of
                 Ok rendered ->
                     column
                         [ Border.width 2
                         , Border.rounded 6
                         , Border.color <| rgb255 0xC0 0xC0 0xC0
                         ]
-                        (List.map (el [ paddingXY 10 0 ] << html) rendered)
+                        (List.map (el [ paddingXY 10 0 ]) rendered)
 
                 Err err ->
                     text err
