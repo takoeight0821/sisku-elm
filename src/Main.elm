@@ -1,9 +1,12 @@
 module Main exposing (..)
 
 import Browser
-import Html exposing (Html, div, input, li, text, ul)
-import Html.Attributes exposing (placeholder, value)
-import Html.Events exposing (onInput)
+import Element exposing (..)
+import Element.Background as Background
+import Element.Border as Border
+import Element.Font as Font
+import Element.Input as Input
+import Html exposing (Html)
 import Http
 import Json.Decode as Json exposing (Decoder, int, list, oneOf, string, succeed)
 import Json.Decode.Pipeline exposing (optional, required)
@@ -26,7 +29,10 @@ init _ =
     ( { query = "", hits = [] }, Cmd.none )
 
 
-baseUrl = "http://192.168.0.13:9200"
+baseUrl : String
+baseUrl =
+    "http://192.168.0.13:9200"
+
 
 fetchSearchResults : String -> Cmd Msg
 fetchSearchResults query =
@@ -236,37 +242,38 @@ subscriptions _ =
 
 view : Model -> Html Msg
 view model =
-    div []
-        [ input [ placeholder "Text to search", value model.query, onInput Change ] []
-        , div []
-            [ text
-                (if String.isEmpty model.query then
-                    "Please enter a search term"
+    layout [ padding 30 ] <|
+        el [] <|
+            column []
+                [ Input.text []
+                    { onChange = Change
+                    , text = model.query
+                    , placeholder = Just <| Input.placeholder [] <| text "Type here"
+                    , label = Input.labelAbove [] <| text "Text to search"
+                    }
+                , if String.isEmpty model.query then
+                    text "Please enter a search term"
 
-                 else
-                    "Searching for " ++ model.query
-                )
-            ]
-        , div []
-            [ if List.isEmpty model.hits then
-                text "No results"
+                  else
+                    text <| "Searching for " ++ model.query
+                , if List.isEmpty model.hits then
+                    text "No results"
 
-              else
-                ul [] (List.map viewHit model.hits)
-            ]
-        ]
+                  else
+                    column [] (List.map viewHit model.hits)
+                ]
 
 
-viewHit : Hit -> Html Msg
+viewHit : Hit -> Element Msg
 viewHit hit =
     case Markdown.parse hit.source.hover.contents.value of
         Ok contents ->
             case Markdown.render Markdown.defaultHtmlRenderer contents of
                 Ok rendered ->
-                    li [] rendered
+                    column [] (List.map html rendered)
 
                 Err err ->
-                    li [] [ text err ]
+                    text err
 
         Err err ->
-            li [] (List.map (\e -> text (Markdown.deadEndToString e)) err)
+            column [] (List.map (\e -> text (Markdown.deadEndToString e)) err)
