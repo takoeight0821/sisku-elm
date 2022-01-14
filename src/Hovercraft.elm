@@ -2,7 +2,6 @@ module Hovercraft exposing (..)
 
 import Json.Decode as Json exposing (Decoder, int, list, oneOf, string, succeed)
 import Json.Decode.Pipeline exposing (optional, required)
-import Json.Encode as E
 
 type alias Hovercraft =
     { hover : Hover

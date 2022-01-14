@@ -2,16 +2,14 @@ module Main exposing (..)
 
 import Browser
 import Element exposing (..)
-import Element.Background as Background
 import Element.Border as Border
-import Element.Font as Font
 import Element.Input as Input
 import ElmUiRenderer exposing (elmUiRenderer)
 import Hovercraft exposing (Hovercraft, hovercraftDecoder)
 import Html exposing (Html)
 import Http
-import Json.Decode as Json exposing (Decoder, int, list, oneOf, string, succeed)
-import Json.Decode.Pipeline exposing (optional, required)
+import Json.Decode as Json exposing (Decoder, list, succeed)
+import Json.Decode.Pipeline exposing (required)
 import Json.Encode as E
 import Markdown.Parser as Markdown
 import Markdown.Renderer as Markdown
@@ -61,17 +59,12 @@ update msg model =
             ( model, Cmd.none )
 
 
-baseUrl : String
-baseUrl =
-    "http://192.168.0.13:9200"
-
-
 fetchSearchResults : String -> Cmd Msg
 fetchSearchResults query =
     Http.request
         { method = "POST"
         , headers = []
-        , url = baseUrl ++ "/hovercraft/_search"
+        , url = "/api/hovercraft/_search"
         , body =
             Http.jsonBody
                 (E.object

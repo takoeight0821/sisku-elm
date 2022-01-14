@@ -8,7 +8,7 @@ import Element.Input
 import Element.Region
 import Html
 import Html.Attributes
-import Markdown.Block as Block exposing (Block, Inline, ListItem(..), Task(..))
+import Markdown.Block as Block exposing (ListItem(..), Task(..))
 import Markdown.Html
 import Markdown.Renderer
 
@@ -26,7 +26,7 @@ elmUiRenderer =
     , strikethrough = \content -> Element.row [ Font.strike ] content
     , codeSpan = code
     , link =
-        \{ title, destination } body ->
+        \{ destination } body ->
             Element.newTabLink
                 [ Element.htmlAttribute (Html.Attributes.style "display" "inline-flex") ]
                 { url = destination
@@ -40,7 +40,7 @@ elmUiRenderer =
     , image =
         \image ->
             case image.title of
-                Just title ->
+                Just _ ->
                     Element.image [ Element.width Element.fill ] { src = image.src, description = image.alt }
 
                 Nothing ->
@@ -98,10 +98,10 @@ elmUiRenderer =
     , tableBody = Element.column []
     , tableRow = Element.row []
     , tableHeaderCell =
-        \maybeAlignment children ->
+        \_ children ->
             Element.paragraph [] children
     , tableCell =
-        \maybeAlignment children ->
+        \_ children ->
             Element.paragraph [] children
     }
 
