@@ -253,12 +253,12 @@ view model =
                     , label = Input.labelAbove [] <| text "Text to search"
                     }
                 , if String.isEmpty model.query then
-                    text "Please enter a search term"
+                    paragraph [padding 1] [text "Please enter a search term"]
 
                   else
-                    text <| "Searching for " ++ model.query
+                    paragraph [padding 1] [text <| "Searching for " ++ model.query]
                 , if List.isEmpty model.hits then
-                    text "No results"
+                    paragraph [padding 1] [text "No results"]
 
                   else
                     column [ spacing 7 ] (List.map viewHit model.hits)
