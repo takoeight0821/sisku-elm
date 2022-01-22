@@ -164,6 +164,7 @@ heading { level, rawText, children } =
         children
 
 
+rawTextToId : String -> String
 rawTextToId rawText =
     rawText
         |> String.split " "
