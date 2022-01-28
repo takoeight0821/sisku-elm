@@ -5,27 +5,33 @@ import Element exposing (..)
 import Element.Border as Border
 import Element.Input as Input
 import ElmUiRenderer exposing (elmUiRenderer)
-import Hovercraft exposing (Hovercraft, hovercraftDecoder)
+import Hovercraft exposing (Entry, entryDecoder)
 import Html exposing (Html)
-import Json.Decode as Json 
+import Json.Decode as Json
 import Markdown.Parser as Markdown
 import Markdown.Renderer as Markdown
+import Json.Encode exposing (encode)
+import Hovercraft exposing (entryDecoder)
 
 
 main : Program () Model Msg
 main =
     Browser.element { init = init, update = update, view = view, subscriptions = subscriptions }
 
+
 port requestSearch : String -> Cmd msg
+
+
 port searchReceiver : (List Json.Value -> msg) -> Sub msg
 
+
 type alias Model =
-    { query : String, hits : List (Result Json.Error Hovercraft) }
+    { query : String, hits : List (Result Json.Error Entry) }
 
 
 type Msg
     = Change String
-    | RecvSearch (List (Result Json.Error Hovercraft))
+    | RecvSearch (List (Result Json.Error Entry))
 
 
 init : () -> ( Model, Cmd Msg )
@@ -53,7 +59,7 @@ update msg model =
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    searchReceiver (\hits -> RecvSearch (List.map (Json.decodeValue hovercraftDecoder) hits))
+    searchReceiver (\hits -> RecvSearch (List.map (Json.decodeValue entryDecoder) hits))
 
 
 view : Model -> Html Msg
@@ -70,24 +76,26 @@ view model =
             )
 
 
-viewHit : Result Json.Error Hovercraft -> Element Msg
+viewHit : Result Json.Error Entry -> Element Msg
 viewHit hit =
-    case hit of
-        Ok hovercraft ->
-            case Markdown.parse hovercraft.hover.contents.value of
-                Ok contents ->
-                    case Markdown.render elmUiRenderer contents of
-                        Ok rendered ->
-                            column
-                                [ Border.width 2
-                                , Border.rounded 6
-                                , Border.color <| rgb255 0xC0 0xC0 0xC0
-                                ]
-                                (List.map (el [ paddingXY 10 0 ]) rendered)
+    hit
+        |> Result.mapError (Json.errorToString >> text)
+        |> Result.andThen
+            (\entry->
+                Markdown.parse entry.hover.contents.value
+                    |> Result.mapError (List.map (Markdown.deadEndToString >> text) >> column [])
+            )
+        |> Result.andThen
+            (\markdown ->
+                Markdown.render elmUiRenderer markdown
+                    |> Result.mapError text
+            )
+        |> (\r ->
+                case r of
+                    Ok results ->
+                        column [ Border.width 2, Border.rounded 6, Border.color <| rgb255 0xC0 0xC0 0xC0 ] <|
+                            List.map (el [ paddingXY 10 0 ]) results
 
-                        Err err ->
-                            text err
-
-                Err err ->
-                    column [] (List.map (\e -> text (Markdown.deadEndToString e)) err)
-        Err err -> text (Json.errorToString err)
+                    Err elem ->
+                        elem
+           )
