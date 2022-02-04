@@ -5,6 +5,7 @@
     "parcel": "^2.2.1"
   },
   "dependencies": {
-    "flexsearch": "^0.7.21"
+    "flexsearch": "^0.7.21",
+    "vscode-languageserver-types": "^3.16.0"
   }
 }
