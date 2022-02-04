@@ -168,7 +168,5 @@ rawTextToId : String -> String
 rawTextToId rawText =
     rawText
         |> String.split " "
-        |> Debug.log "split"
         |> String.join "-"
-        |> Debug.log "joined"
         |> String.toLower
