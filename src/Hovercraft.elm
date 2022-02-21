@@ -5,12 +5,11 @@ import Json.Decode.Pipeline exposing (optional, required)
 
 
 type alias Hovercraft =
-    List Page
+    { projectId : String, pages : List Page }
 
 
 type alias Page =
-    { document : TextDocumentIdentifier
-    , entries : List Entry
+    { entries : List Entry
     }
 
 
@@ -20,7 +19,9 @@ type alias TextDocumentIdentifier =
 
 
 type alias Entry =
-    { hover : Hover
+    { document : TextDocumentIdentifier
+    , projectId : String
+    , hover : Hover
     , definitions : List Definition
     , moniker : List Moniker
     , rootPath : String
@@ -78,13 +79,14 @@ type alias Moniker =
 
 hovercraftDecoder : Decoder Hovercraft
 hovercraftDecoder =
-    list pageDecoder
+    succeed Hovercraft
+        |> required "projectId" string
+        |> required "pages" (list pageDecoder)
 
 
 pageDecoder : Decoder Page
 pageDecoder =
     succeed Page
-        |> required "document" textDocumentIdentifierDecoder
         |> required "entries" (list entryDecoder)
 
 
@@ -97,6 +99,8 @@ textDocumentIdentifierDecoder =
 entryDecoder : Decoder Entry
 entryDecoder =
     succeed Entry
+        |> required "document" textDocumentIdentifierDecoder
+        |> required "projectId" string
         |> required "hover" hoverDecoder
         |> optional "definitions" (list definitionDecoder) []
         |> optional "moniker" (list monikerDecoder) []

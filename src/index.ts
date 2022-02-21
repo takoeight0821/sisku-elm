@@ -21,6 +21,7 @@ const flexsearchIndex = new Document({
 const fuseOptions = {
 	includeScore: true,
 	sortFn: (a: { score: number; }, b: { score: number; }) => { return b.score - a.score },
+	useExtendedSearch: true,
 	keys: ['hover.contents.value'],
 };
 
@@ -28,13 +29,16 @@ const fuseList: Entry[] = [];
 
 let fuse = new Fuse(fuseList, fuseOptions);
 
+const projectIds = [];
+
 fetch('/hovercraft')
 	.then(res => res.json())
 	.then((projects: Projects) => {
 		let id = 0;
-		for (let projectName in projects) {
-			const hovercrafts = projects[projectName];
-			for (let page of hovercrafts) {
+		for (let projectId in projects) {
+			const hovercrafts = projects[projectId];
+			projectIds.push(projectId);
+			for (let page of hovercrafts.pages) {
 				for (let entry of page.entries) {
 					flexsearchIndex.add({ id: id, contents: entry });
 					fuseList.push(entry);

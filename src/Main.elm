@@ -71,21 +71,28 @@ subscriptions _ =
 view : Model -> Html Msg
 view model =
     layout [ padding 30 ] <|
-        column [ spacing 7 ]
-            (Input.text [ Input.focusedOnLoad ]
-                { onChange = Change
-                , text = model.query
-                , placeholder = Just <| Input.placeholder [] <| text "Type here"
-                , label = Input.labelAbove [] <| text "Text to search"
-                }
-                :: Input.checkbox []
-                    { onChange = FuzzMode
-                    , icon = Input.defaultCheckbox
-                    , checked = model.isFuzzMode
-                    , label = Input.labelRight [] <| text "Fuzzy search"
+        row [ spacing 7 ]
+            [ column [ alignTop, spacing 7 ]
+                [ text "Foo"
+                , text "Bar"
+                ]
+            , column [ spacing 7 ]
+                (Input.text
+                    [ Input.focusedOnLoad ]
+                    { onChange = Change
+                    , text = model.query
+                    , placeholder = Just <| Input.placeholder [] <| text "Type here"
+                    , label = Input.labelAbove [] <| text "Text to search"
                     }
-                :: List.map viewHit model.hits
-            )
+                    :: Input.checkbox []
+                        { onChange = FuzzMode
+                        , icon = Input.defaultCheckbox
+                        , checked = model.isFuzzMode
+                        , label = Input.labelRight [] <| text "Fuzzy search"
+                        }
+                    :: List.map viewHit model.hits
+                )
+            ]
 
 
 viewHit : Result Json.Error Entry -> Element Msg
@@ -96,11 +103,13 @@ viewHit hit =
             (\entry ->
                 Markdown.parse entry.hover.contents.value
                     |> Result.mapError (List.map (Markdown.deadEndToString >> text) >> column [])
+                    |> Result.map (\markdown -> ( entry.projectId, markdown ))
             )
         |> Result.andThen
-            (\markdown ->
+            (\( projectId, markdown ) ->
                 Markdown.render elmUiRenderer markdown
                     |> Result.mapError text
+                    |> Result.map (List.append [ text projectId ])
             )
         |> (\r ->
                 case r of
