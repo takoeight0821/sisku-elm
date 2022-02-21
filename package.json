@@ -6,6 +6,7 @@
   },
   "dependencies": {
     "flexsearch": "^0.7.21",
+    "fuse.js": "^6.5.3",
     "vscode-languageserver-types": "^3.16.0"
   }
 }

@@ -1,18 +1,20 @@
+import { Entry } from "./Hovercraft";
+
 export namespace Elm {
 	namespace Main {
 		interface App {
 			ports: Ports;
 		}
-		
+
 		interface Args {
 			node: HTMLElement;
 		}
-		
+
 		interface Ports {
-			requestSearch: Subscribe<string>;
-			searchReceiver: Send<string[]>;
+			requestSearch: Subscribe<[boolean, string]>;
+			searchReceiver: Send<Entry[]>;
 		}
-		
+
 		function init(args: Args): App;
 
 		interface Subscribe<T> {
@@ -22,5 +24,5 @@ export namespace Elm {
 		interface Send<T> {
 			send(value: T): void;
 		}
-	}	
+	}
 }

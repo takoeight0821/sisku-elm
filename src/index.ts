@@ -1,11 +1,12 @@
 'use strict';
 import { Elm } from "./Main.elm";
 import { Document } from "flexsearch";
-import * as lsp from "vscode-languageserver-types";
+import Fuse from "fuse.js";
+import { Entry, Projects } from "./Hovercraft";
 
 var app = Elm.Main.init({ node: document.getElementById("root") });
 
-const index = new Document({
+const flexsearchIndex = new Document({
 	encode: function (str: string) {
 		return str.toLowerCase().split(/\s+/g);
 	},
@@ -17,23 +18,15 @@ const index = new Document({
 	}
 });
 
-interface Projects {
-	[projectName: string]: Hovercraft;
-}
+const fuseOptions = {
+	includeScore: true,
+	sortFn: (a: { score: number; }, b: { score: number; }) => { return b.score - a.score },
+	keys: ['hover.contents.value'],
+};
 
-type Hovercraft = Array<Page>;
+const fuseList: Entry[] = [];
 
-interface Page {
-	document: lsp.TextDocumentIdentifier;
-	entries: Array<Entry>;
-}
-
-interface Entry {
-	hover: lsp.Hover;
-	definition: { uri: lsp.URI, range: lsp.Range };
-	moniker: any;
-	rootPath: string;
-}
+let fuse = new Fuse(fuseList, fuseOptions);
 
 fetch('/hovercraft')
 	.then(res => res.json())
@@ -43,19 +36,28 @@ fetch('/hovercraft')
 			const hovercrafts = projects[projectName];
 			for (let page of hovercrafts) {
 				for (let entry of page.entries) {
-					index.add({ id: id, contents: entry });
+					flexsearchIndex.add({ id: id, contents: entry });
+					fuseList.push(entry);
 					id++;
 				}
 			}
 		}
+		fuse = new Fuse(fuseList, fuseOptions);
 	});
 
-app.ports.requestSearch.subscribe(function (query) {
-	console.log("requestSearch", query);
+app.ports.requestSearch.subscribe(function ([isFuzzMode, query]) {
+	console.log("requestSearch", isFuzzMode, query);
 
-	const results = index.search(query, { pluck: "contents:hover:contents:value", enrich: true }).map(function (result: any) {
-		return result.doc.contents;
-	});
-	console.log("results", results);
-	app.ports.searchReceiver.send(results);
+	if (isFuzzMode) {
+		const rawResults = fuse.search(query);
+		console.log("rawResults", rawResults);
+		const results = rawResults.map(entry => entry.item);
+		app.ports.searchReceiver.send(results);
+	} else {
+		const results = flexsearchIndex.search(query, { pluck: "contents:hover:contents:value", enrich: true }).map(function (result: any) {
+			return result.doc.contents;
+		});
+		console.log("results", results);
+		app.ports.searchReceiver.send(results);
+	}
 });

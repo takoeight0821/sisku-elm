@@ -10,8 +10,6 @@ import Html exposing (Html)
 import Json.Decode as Json
 import Markdown.Parser as Markdown
 import Markdown.Renderer as Markdown
-import Json.Encode exposing (encode)
-import Hovercraft exposing (entryDecoder)
 
 
 main : Program () Model Msg
@@ -19,24 +17,25 @@ main =
     Browser.element { init = init, update = update, view = view, subscriptions = subscriptions }
 
 
-port requestSearch : String -> Cmd msg
+port requestSearch : ( Bool, String ) -> Cmd msg
 
 
 port searchReceiver : (List Json.Value -> msg) -> Sub msg
 
 
 type alias Model =
-    { query : String, hits : List (Result Json.Error Entry) }
+    { query : String, isFuzzMode : Bool, hits : List (Result Json.Error Entry) }
 
 
 type Msg
     = Change String
+    | FuzzMode Bool
     | RecvSearch (List (Result Json.Error Entry))
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { query = "", hits = [] }, Cmd.none )
+    ( { query = "", isFuzzMode = False, hits = [] }, Cmd.none )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -46,7 +45,14 @@ update msg model =
             ( { model
                 | query = newQuery
               }
-            , requestSearch newQuery
+            , requestSearch ( model.isFuzzMode, newQuery )
+            )
+
+        FuzzMode flag ->
+            ( { model
+                | isFuzzMode = flag
+              }
+            , requestSearch ( flag, model.query )
             )
 
         RecvSearch hits ->
@@ -72,6 +78,12 @@ view model =
                 , placeholder = Just <| Input.placeholder [] <| text "Type here"
                 , label = Input.labelAbove [] <| text "Text to search"
                 }
+                :: Input.checkbox []
+                    { onChange = FuzzMode
+                    , icon = Input.defaultCheckbox
+                    , checked = model.isFuzzMode
+                    , label = Input.labelRight [] <| text "Fuzzy search"
+                    }
                 :: List.map viewHit model.hits
             )
 
@@ -81,7 +93,7 @@ viewHit hit =
     hit
         |> Result.mapError (Json.errorToString >> text)
         |> Result.andThen
-            (\entry->
+            (\entry ->
                 Markdown.parse entry.hover.contents.value
                     |> Result.mapError (List.map (Markdown.deadEndToString >> text) >> column [])
             )
