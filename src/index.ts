@@ -21,7 +21,6 @@ const flexsearchIndex = new Document({
 const fuseOptions = {
 	includeScore: true,
 	sortFn: (a: { score: number; }, b: { score: number; }) => { return b.score - a.score },
-	useExtendedSearch: true,
 	keys: ['hover.contents.value'],
 };
 
@@ -47,6 +46,7 @@ fetch('/hovercraft')
 			}
 		}
 		fuse = new Fuse(fuseList, fuseOptions);
+		app.ports.projectIdsReceiver.send(projectIds);
 	});
 
 app.ports.requestSearch.subscribe(function ([isFuzzMode, query]) {

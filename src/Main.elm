@@ -1,6 +1,7 @@
 port module Main exposing (..)
 
 import Browser
+import Dict as Dict exposing (Dict)
 import Element exposing (..)
 import Element.Border as Border
 import Element.Input as Input
@@ -23,19 +24,24 @@ port requestSearch : ( Bool, String ) -> Cmd msg
 port searchReceiver : (List Json.Value -> msg) -> Sub msg
 
 
+port projectIdsReceiver : (List String -> msg) -> Sub msg
+
+
 type alias Model =
-    { query : String, isFuzzMode : Bool, hits : List (Result Json.Error Entry) }
+    { projectIds : Dict String Bool, query : String, isFuzzMode : Bool, hits : List (Result Json.Error Entry) }
 
 
 type Msg
     = Change String
     | FuzzMode Bool
+    | Contains String Bool
     | RecvSearch (List (Result Json.Error Entry))
+    | RecvProjectIds (List String)
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { query = "", isFuzzMode = False, hits = [] }, Cmd.none )
+    ( { projectIds = Dict.fromList [], query = "", isFuzzMode = False, hits = [] }, Cmd.none )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -55,6 +61,9 @@ update msg model =
             , requestSearch ( flag, model.query )
             )
 
+        Contains projectId flag ->
+            ( { model | projectIds = Dict.insert projectId flag model.projectIds }, Cmd.none )
+
         RecvSearch hits ->
             ( { model
                 | hits = hits
@@ -62,10 +71,20 @@ update msg model =
             , Cmd.none
             )
 
+        RecvProjectIds projectIds ->
+            ( { model
+                | projectIds = Dict.fromList (List.map (\id -> ( id, True )) projectIds)
+              }
+            , Cmd.none
+            )
+
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    searchReceiver (\hits -> RecvSearch (List.map (Json.decodeValue entryDecoder) hits))
+    Sub.batch
+        [ searchReceiver (\hits -> RecvSearch (List.map (Json.decodeValue entryDecoder) hits))
+        , projectIdsReceiver RecvProjectIds
+        ]
 
 
 view : Model -> Html Msg
@@ -73,9 +92,17 @@ view model =
     layout [ padding 30 ] <|
         row [ spacing 7 ]
             [ column [ alignTop, spacing 7 ]
-                [ text "Foo"
-                , text "Bar"
-                ]
+                (List.map
+                    (\projectId ->
+                        Input.checkbox []
+                            { onChange = Contains projectId
+                            , icon = Input.defaultCheckbox
+                            , checked = Maybe.withDefault False (Dict.get projectId model.projectIds)
+                            , label = Input.labelRight [] <| text projectId
+                            }
+                    )
+                    (Dict.keys model.projectIds)
+                )
             , column [ spacing 7 ]
                 (Input.text
                     [ Input.focusedOnLoad ]
@@ -90,7 +117,23 @@ view model =
                         , checked = model.isFuzzMode
                         , label = Input.labelRight [] <| text "Fuzzy search"
                         }
-                    :: List.map viewHit model.hits
+                    :: List.map viewHit
+                        (model.hits
+                            |> List.filter
+                                (\r ->
+                                    case r of
+                                        Err _ ->
+                                            True
+
+                                        Ok entry ->
+                                            case Dict.get entry.projectId model.projectIds of
+                                                Nothing ->
+                                                    False
+
+                                                Just flag ->
+                                                    flag
+                                )
+                        )
                 )
             ]
 
