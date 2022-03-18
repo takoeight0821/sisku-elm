@@ -21,7 +21,7 @@ main =
 port requestSearch : ( Bool, String ) -> Cmd msg
 
 
-port searchReceiver : (List Json.Value -> msg) -> Sub msg
+port searchReceiver : ((String, List Json.Value) -> msg) -> Sub msg
 
 
 port projectIdsReceiver : (List String -> msg) -> Sub msg
@@ -35,7 +35,7 @@ type Msg
     = Change String
     | FuzzMode Bool
     | Contains String Bool
-    | RecvSearch (List (Result Json.Error Entry))
+    | RecvSearch String (List (Result Json.Error Entry))
     | RecvProjectIds (List String)
 
 
@@ -64,12 +64,14 @@ update msg model =
         Contains projectId flag ->
             ( { model | projectIds = Dict.insert projectId flag model.projectIds }, Cmd.none )
 
-        RecvSearch hits ->
-            ( { model
-                | hits = hits
-              }
-            , Cmd.none
-            )
+        RecvSearch query hits ->
+            if query == model.query 
+            then ( { model
+                    | hits = hits
+                  }
+                , Cmd.none
+                )
+            else (model, Cmd.none)
 
         RecvProjectIds projectIds ->
             ( { model
@@ -82,7 +84,7 @@ update msg model =
 subscriptions : Model -> Sub Msg
 subscriptions _ =
     Sub.batch
-        [ searchReceiver (\hits -> RecvSearch (List.map (Json.decodeValue entryDecoder) hits))
+        [ searchReceiver (\(query, hits) -> RecvSearch query (List.map (Json.decodeValue entryDecoder) hits))
         , projectIdsReceiver RecvProjectIds
         ]
 

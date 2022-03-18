@@ -1,10 +1,10 @@
 'use strict';
-import {Elm} from "./Main.elm";
-import {Document} from "flexsearch";
+import { Elm } from "./Main.elm";
+import { Document } from "flexsearch";
 import Fuse from "fuse.js";
-import {Entry, Projects} from "./Hovercraft";
+import { Entry, Projects } from "./Hovercraft";
 
-var app = Elm.Main.init({node: document.getElementById("root")});
+var app = Elm.Main.init({ node: document.getElementById("root") });
 
 const flexsearchIndex = new Document({
 	charset: "latin:simple",
@@ -18,7 +18,7 @@ const flexsearchIndex = new Document({
 
 const fuseOptions = {
 	includeScore: true,
-	sortFn: (a: {score: number;}, b: {score: number;}) => {return b.score - a.score},
+	sortFn: (a: { score: number; }, b: { score: number; }) => { return b.score - a.score },
 	keys: ['hover.contents.value'],
 };
 
@@ -30,7 +30,7 @@ const projectIds = [];
 
 fetch('/hovercraft')
 	.then(res => res.json())
-	.then(res => {console.log(res); return res;})
+	.then(res => { console.log(res); return res; })
 	.then((projects: Projects) => {
 		let id = 0;
 		for (let projectId in projects) {
@@ -38,7 +38,7 @@ fetch('/hovercraft')
 			projectIds.push(projectId);
 			for (let page of hovercrafts.pages) {
 				for (let entry of page.entries) {
-					flexsearchIndex.add({id: id, contents: entry});
+					flexsearchIndex.add({ id: id, contents: entry });
 					fuseList.push(entry);
 					id++;
 				}
@@ -55,7 +55,7 @@ app.ports.requestSearch.subscribe(function ([isFuzzMode, query]) {
 		const rawResults = fuse.search(query);
 		console.log("rawResults", rawResults);
 		const results = rawResults.map(entry => entry.item);
-		app.ports.searchReceiver.send(results);
+		app.ports.searchReceiver.send([query, results]);
 	} else {
 		// const results = flexsearchIndex.search(query, {pluck: "contents:hover:contents:value", enrich: true}).map(function (result: any) {
 		// 	return result.doc.contents;
@@ -64,6 +64,10 @@ app.ports.requestSearch.subscribe(function ([isFuzzMode, query]) {
 		// app.ports.searchReceiver.send(results)
 		fetch('/search?q=' + query)
 			.then(res => res.json())
-			.then(res => app.ports.searchReceiver.send(res.results))
+			.then(res => {
+				console.log("search", res);
+				return res;
+			})
+			.then(res => app.ports.searchReceiver.send([res.query, res.results]))
 	}
 });
