@@ -18,22 +18,28 @@ main =
     Browser.element { init = init, update = update, view = view, subscriptions = subscriptions }
 
 
-port requestSearch : ( Bool, String ) -> Cmd msg
+port requestSearch : ( String, Bool, String ) -> Cmd msg
 
 
-port searchReceiver : ((String, List Json.Value) -> msg) -> Sub msg
+port searchReceiver : (( String, List Json.Value ) -> msg) -> Sub msg
 
 
 port projectIdsReceiver : (List String -> msg) -> Sub msg
 
 
 type alias Model =
-    { projectIds : Dict String Bool, query : String, isFuzzMode : Bool, hits : List (Result Json.Error Entry) }
+    { projectIds : Dict String Bool
+    , query : String
+    , isFuzzMode : Bool
+    , placeholder : String
+    , hits : List (Result Json.Error Entry)
+    }
 
 
 type Msg
-    = Change String
+    = ChangeQuery String
     | FuzzMode Bool
+    | ChangePlaceholder String
     | Contains String Bool
     | RecvSearch String (List (Result Json.Error Entry))
     | RecvProjectIds (List String)
@@ -41,37 +47,53 @@ type Msg
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { projectIds = Dict.fromList [], query = "", isFuzzMode = False, hits = [] }, Cmd.none )
+    ( { projectIds = Dict.fromList []
+      , query = ""
+      , isFuzzMode = False
+      , placeholder = "_"
+      , hits = []
+      }
+    , Cmd.none
+    )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        Change newQuery ->
+        ChangeQuery newQuery ->
             ( { model
                 | query = newQuery
               }
-            , requestSearch ( model.isFuzzMode, newQuery )
+            , requestSearch ( model.placeholder, model.isFuzzMode, newQuery )
             )
 
         FuzzMode flag ->
             ( { model
                 | isFuzzMode = flag
               }
-            , requestSearch ( flag, model.query )
+            , requestSearch ( model.placeholder, flag, model.query )
+            )
+
+        ChangePlaceholder newPlaceholder ->
+            ( { model
+                | placeholder = newPlaceholder
+              }
+            , requestSearch ( newPlaceholder, model.isFuzzMode, model.query )
             )
 
         Contains projectId flag ->
             ( { model | projectIds = Dict.insert projectId flag model.projectIds }, Cmd.none )
 
         RecvSearch query hits ->
-            if query == model.query 
-            then ( { model
+            if query == model.query then
+                ( { model
                     | hits = hits
                   }
                 , Cmd.none
                 )
-            else (model, Cmd.none)
+
+            else
+                ( model, Cmd.none )
 
         RecvProjectIds projectIds ->
             ( { model
@@ -84,7 +106,7 @@ update msg model =
 subscriptions : Model -> Sub Msg
 subscriptions _ =
     Sub.batch
-        [ searchReceiver (\(query, hits) -> RecvSearch query (List.map (Json.decodeValue entryDecoder) hits))
+        [ searchReceiver (\( query, hits ) -> RecvSearch query (List.map (Json.decodeValue entryDecoder) hits))
         , projectIdsReceiver RecvProjectIds
         ]
 
@@ -92,7 +114,7 @@ subscriptions _ =
 view : Model -> Html Msg
 view model =
     layout [ padding 30 ] <|
-        row [ spacing 7 ]
+        column [ spacing 7 ]
             [ column [ alignTop, spacing 7 ]
                 (List.map
                     (\projectId ->
@@ -106,13 +128,22 @@ view model =
                     (Dict.keys model.projectIds)
                 )
             , column [ spacing 7 ]
-                (Input.text
-                    [ Input.focusedOnLoad ]
-                    { onChange = Change
-                    , text = model.query
-                    , placeholder = Just <| Input.placeholder [] <| text "Type here"
-                    , label = Input.labelAbove [] <| text "Text to search"
-                    }
+                (row [ spacing 7 ]
+                    [ Input.text
+                        [ Input.focusedOnLoad ]
+                        { onChange = ChangeQuery
+                        , text = model.query
+                        , placeholder = Just <| Input.placeholder [] <| text "Type here"
+                        , label = Input.labelAbove [] <| text "Text to search"
+                        }
+                    , Input.text
+                        []
+                        { onChange = ChangePlaceholder
+                        , text = model.placeholder
+                        , placeholder = Just <| Input.placeholder [] <| text "_"
+                        , label = Input.labelAbove [] <| text "Placeholder"
+                        }
+                    ]
                     :: Input.checkbox []
                         { onChange = FuzzMode
                         , icon = Input.defaultCheckbox
