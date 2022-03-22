@@ -18,7 +18,13 @@ main =
     Browser.element { init = init, update = update, view = view, subscriptions = subscriptions }
 
 
-port requestSearch : ( String, Bool, String ) -> Cmd msg
+port requestSearch :
+    { placeholder : String
+    , isFuzzMode : Bool
+    , projectIds : List String
+    , query : String
+    }
+    -> Cmd msg
 
 
 port searchReceiver : (( String, List Json.Value ) -> msg) -> Sub msg
@@ -57,6 +63,24 @@ init _ =
     )
 
 
+requestSearchParam : Model -> { placeholder : String, isFuzzMode : Bool, projectIds : List String, query : String }
+requestSearchParam model =
+    { placeholder = model.placeholder
+    , isFuzzMode = model.isFuzzMode
+    , projectIds =
+        List.concatMap
+            (\( projectId, enabled ) ->
+                if enabled then
+                    [ projectId ]
+
+                else
+                    []
+            )
+            (Dict.toList model.projectIds)
+    , query = model.query
+    }
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
@@ -64,25 +88,27 @@ update msg model =
             ( { model
                 | query = newQuery
               }
-            , requestSearch ( model.placeholder, model.isFuzzMode, newQuery )
+            , requestSearch (requestSearchParam { model | query = newQuery })
             )
 
         FuzzMode flag ->
             ( { model
                 | isFuzzMode = flag
               }
-            , requestSearch ( model.placeholder, flag, model.query )
+            , requestSearch (requestSearchParam { model | isFuzzMode = flag })
             )
 
         ChangePlaceholder newPlaceholder ->
             ( { model
                 | placeholder = newPlaceholder
               }
-            , requestSearch ( newPlaceholder, model.isFuzzMode, model.query )
+            , requestSearch (requestSearchParam { model | placeholder = newPlaceholder })
             )
 
         Contains projectId flag ->
-            ( { model | projectIds = Dict.insert projectId flag model.projectIds }, Cmd.none )
+            ( { model | projectIds = Dict.insert projectId flag model.projectIds }
+            , requestSearch (requestSearchParam { model | projectIds = Dict.insert projectId flag model.projectIds })
+            )
 
         RecvSearch query hits ->
             if query == model.query then
@@ -150,23 +176,7 @@ view model =
                         , checked = model.isFuzzMode
                         , label = Input.labelRight [] <| text "Fuzzy search"
                         }
-                    :: List.map viewHit
-                        (model.hits
-                            |> List.filter
-                                (\r ->
-                                    case r of
-                                        Err _ ->
-                                            True
-
-                                        Ok entry ->
-                                            case Dict.get entry.projectId model.projectIds of
-                                                Nothing ->
-                                                    False
-
-                                                Just flag ->
-                                                    flag
-                                )
-                        )
+                    :: List.map viewHit model.hits
                 )
             ]
 

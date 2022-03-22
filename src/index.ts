@@ -48,16 +48,18 @@ fetch('/hovercraft')
 		app.ports.projectIdsReceiver.send(projectIds);
 	});
 
-app.ports.requestSearch.subscribe(function ([placeholder, isFuzzMode, query]) {
+app.ports.requestSearch.subscribe(function ({ placeholder, isFuzzMode, projectIds, query }) {
 	console.log("requestSearch", isFuzzMode, query);
+
+	const projectIdParams = projectIds.map(projectId => `projectIds[]=${projectId}`).join('&');
 
 	if (isFuzzMode) {
 		const rawResults = fuse.search(query);
 		console.log("rawResults", rawResults);
-		const results = rawResults.map(entry => entry.item);
+		const results = rawResults.map(entry => entry.item).filter(entry => projectIds.includes(entry.projectId));
 		app.ports.searchReceiver.send([query, results]);
 	} else {
-		fetch('/search?placeholder=' + placeholder + '&q=' + query)
+		fetch('/search?placeholder=' + placeholder + '&' + projectIdParams + '&q=' + query)
 			.then(res => res.json())
 			.then(res => {
 				console.log("search", res);

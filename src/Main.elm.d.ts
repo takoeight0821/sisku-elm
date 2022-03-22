@@ -11,7 +11,7 @@ export namespace Elm {
 		}
 
 		interface Ports {
-			requestSearch: Subscribe<[string, boolean, string]>;
+			requestSearch: Subscribe<{ placeholder: string, isFuzzMode: boolean, projectIds: string[], query: string }>;
 			searchReceiver: Send<[string, Entry[]]>;
 			projectIdsReceiver: Send<string[]>;
 		}
