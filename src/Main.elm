@@ -5,6 +5,7 @@ import Dict as Dict exposing (Dict)
 import Element exposing (..)
 import Element.Border as Border
 import Element.Input as Input
+import Element.Lazy as Lazy
 import ElmUiRenderer exposing (elmUiRenderer)
 import Hovercraft exposing (Entry, entryDecoder)
 import Html exposing (Html)
@@ -113,7 +114,7 @@ update msg model =
         RecvSearch query hits ->
             if query == model.query then
                 ( { model
-                    | hits = hits
+                    | hits = List.take 100 hits
                   }
                 , Cmd.none
                 )
@@ -140,45 +141,39 @@ subscriptions _ =
 view : Model -> Html Msg
 view model =
     layout [ padding 30 ] <|
-        column [ spacing 7 ]
-            [ column [ alignTop, spacing 7 ]
-                (List.map
-                    (\projectId ->
-                        Input.checkbox []
-                            { onChange = Contains projectId
-                            , icon = Input.defaultCheckbox
-                            , checked = Maybe.withDefault False (Dict.get projectId model.projectIds)
-                            , label = Input.labelRight [] <| text projectId
-                            }
-                    )
-                    (Dict.keys model.projectIds)
+        column [ alignTop, spacing 7 ] <|
+            List.map
+                (\projectId ->
+                    Input.checkbox []
+                        { onChange = Contains projectId
+                        , icon = Input.defaultCheckbox
+                        , checked = Maybe.withDefault False (Dict.get projectId model.projectIds)
+                        , label = Input.labelRight [] <| text projectId
+                        }
                 )
-            , column [ spacing 7 ]
-                (row [ spacing 7 ]
-                    [ Input.text
+                (Dict.keys model.projectIds)
+                ++ [ Input.text
                         [ Input.focusedOnLoad ]
                         { onChange = ChangeQuery
                         , text = model.query
                         , placeholder = Just <| Input.placeholder [] <| text "Type here"
-                        , label = Input.labelAbove [] <| text "Text to search"
+                        , label = Input.labelLeft [] <| text "Text to search"
                         }
-                    , Input.text
+                   , Input.text
                         []
                         { onChange = ChangePlaceholder
                         , text = model.placeholder
                         , placeholder = Just <| Input.placeholder [] <| text "_"
-                        , label = Input.labelAbove [] <| text "Placeholder"
+                        , label = Input.labelLeft [] <| text "Placeholder"
                         }
-                    ]
-                    :: Input.checkbox []
+                   , Input.checkbox []
                         { onChange = FuzzMode
                         , icon = Input.defaultCheckbox
                         , checked = model.isFuzzMode
                         , label = Input.labelRight [] <| text "Fuzzy search"
                         }
-                    :: List.map viewHit model.hits
-                )
-            ]
+                   ]
+                ++ List.map (Lazy.lazy viewHit) model.hits
 
 
 viewHit : Result Json.Error Entry -> Element Msg

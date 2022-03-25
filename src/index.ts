@@ -1,20 +1,9 @@
 'use strict';
 import { Elm } from "./Main.elm";
-import { Document } from "flexsearch";
 import Fuse from "fuse.js";
 import { Entry, Projects } from "./Hovercraft";
 
 var app = Elm.Main.init({ node: document.getElementById("root") });
-
-const flexsearchIndex = new Document({
-	charset: "latin:simple",
-	tokenize: "full",
-	document: {
-		id: "id",
-		index: ["contents:hover:contents:value"],
-		store: true,
-	}
-});
 
 const fuseOptions = {
 	includeScore: true,
@@ -32,15 +21,12 @@ fetch('/hovercraft')
 	.then(res => res.json())
 	.then(res => { console.log(res); return res; })
 	.then((projects: Projects) => {
-		let id = 0;
 		for (let projectId in projects) {
 			const hovercrafts = projects[projectId];
 			projectIds.push(projectId);
 			for (let page of hovercrafts.pages) {
 				for (let entry of page.entries) {
-					flexsearchIndex.add({ id: id, contents: entry });
 					fuseList.push(entry);
-					id++;
 				}
 			}
 		}
