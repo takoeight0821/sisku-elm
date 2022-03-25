@@ -12,6 +12,7 @@ import Html exposing (Html)
 import Json.Decode as Json
 import Markdown.Parser as Markdown
 import Markdown.Renderer as Markdown
+import RemoteData exposing (RemoteData(..))
 
 
 main : Program () Model Msg
@@ -39,7 +40,7 @@ type alias Model =
     , query : String
     , isFuzzMode : Bool
     , placeholder : String
-    , hits : List (Result Json.Error Entry)
+    , hits : RemoteData () (List (Result Json.Error Entry))
     }
 
 
@@ -58,7 +59,7 @@ init _ =
       , query = ""
       , isFuzzMode = False
       , placeholder = "_"
-      , hits = []
+      , hits = NotAsked
       }
     , Cmd.none
     )
@@ -86,35 +87,37 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         ChangeQuery newQuery ->
-            ( { model
-                | query = newQuery
-              }
-            , requestSearch (requestSearchParam { model | query = newQuery })
+            let newModel = {model | query = newQuery , hits = Loading}
+            in 
+            ( newModel
+            , requestSearch (requestSearchParam newModel)
             )
 
         FuzzMode flag ->
-            ( { model
-                | isFuzzMode = flag
-              }
-            , requestSearch (requestSearchParam { model | isFuzzMode = flag })
+            let newModel = {model | isFuzzMode = flag, hits = Loading }
+            in 
+            ( newModel
+            , requestSearch (requestSearchParam newModel)
             )
 
         ChangePlaceholder newPlaceholder ->
-            ( { model
-                | placeholder = newPlaceholder
-              }
-            , requestSearch (requestSearchParam { model | placeholder = newPlaceholder })
+            let newModel = {model | placeholder = newPlaceholder, hits = Loading}
+            in
+            ( newModel
+            , requestSearch (requestSearchParam newModel)
             )
 
         Contains projectId flag ->
-            ( { model | projectIds = Dict.insert projectId flag model.projectIds }
-            , requestSearch (requestSearchParam { model | projectIds = Dict.insert projectId flag model.projectIds })
+            let newModel = {model | projectIds = Dict.insert projectId flag model.projectIds, hits = Loading}
+            in
+            ( newModel
+            , requestSearch (requestSearchParam newModel)
             )
 
         RecvSearch query hits ->
             if query == model.query then
                 ( { model
-                    | hits = List.take 100 hits
+                    | hits = Success hits
                   }
                 , Cmd.none
                 )
@@ -173,7 +176,11 @@ view model =
                         , label = Input.labelRight [] <| text "Fuzzy search"
                         }
                    ]
-                ++ List.map (Lazy.lazy viewHit) model.hits
+                ++ case model.hits of
+                    NotAsked -> []
+                    Loading -> [text "Loading..."]
+                    Failure _ -> [text "ERROR"]
+                    Success hits -> List.map (Lazy.lazy viewHit) hits
 
 
 viewHit : Result Json.Error Entry -> Element Msg
