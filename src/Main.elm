@@ -9,6 +9,7 @@ import Element.Lazy as Lazy
 import ElmUiRenderer exposing (elmUiRenderer)
 import Hovercraft exposing (Entry, entryDecoder)
 import Html exposing (Html)
+import Html.Events
 import Json.Decode as Json
 import Markdown.Parser as Markdown
 import Markdown.Renderer as Markdown
@@ -49,6 +50,7 @@ type Msg
     | FuzzMode Bool
     | ChangePlaceholder String
     | Contains String Bool
+    | EnterWasPressed
     | RecvSearch String (List (Result Json.Error Entry))
     | RecvProjectIds (List String)
 
@@ -87,28 +89,45 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         ChangeQuery newQuery ->
-            let newModel = {model | query = newQuery , hits = Loading}
-            in 
+            let
+                newModel =
+                    { model | query = newQuery }
+            in
             ( newModel
-            , requestSearch (requestSearchParam newModel)
+            , Cmd.none
             )
 
         FuzzMode flag ->
-            let newModel = {model | isFuzzMode = flag, hits = Loading }
-            in 
+            let
+                newModel =
+                    { model | isFuzzMode = flag, hits = Loading }
+            in
             ( newModel
             , requestSearch (requestSearchParam newModel)
             )
 
         ChangePlaceholder newPlaceholder ->
-            let newModel = {model | placeholder = newPlaceholder, hits = Loading}
+            let
+                newModel =
+                    { model | placeholder = newPlaceholder, hits = Loading }
             in
             ( newModel
             , requestSearch (requestSearchParam newModel)
             )
 
         Contains projectId flag ->
-            let newModel = {model | projectIds = Dict.insert projectId flag model.projectIds, hits = Loading}
+            let
+                newModel =
+                    { model | projectIds = Dict.insert projectId flag model.projectIds, hits = Loading }
+            in
+            ( newModel
+            , requestSearch (requestSearchParam newModel)
+            )
+
+        EnterWasPressed ->
+            let
+                newModel =
+                    { model | hits = Loading }
             in
             ( newModel
             , requestSearch (requestSearchParam newModel)
@@ -141,6 +160,23 @@ subscriptions _ =
         ]
 
 
+onEnter : msg -> Element.Attribute msg
+onEnter msg =
+    Element.htmlAttribute
+        (Html.Events.on "keyup"
+            (Json.field "key" Json.string
+                |> Json.andThen
+                    (\key ->
+                        if key == "Enter" then
+                            Json.succeed msg
+
+                        else
+                            Json.fail "Not the enter key"
+                    )
+            )
+        )
+
+
 view : Model -> Html Msg
 view model =
     layout [ padding 30 ] <|
@@ -156,10 +192,10 @@ view model =
                 )
                 (Dict.keys model.projectIds)
                 ++ [ Input.text
-                        [ Input.focusedOnLoad ]
+                        [ Input.focusedOnLoad, onEnter EnterWasPressed ]
                         { onChange = ChangeQuery
                         , text = model.query
-                        , placeholder = Just <| Input.placeholder [] <| text "Type here"
+                        , placeholder = Just <| Input.placeholder [] <| text "Type here and press enter"
                         , label = Input.labelLeft [] <| text "Text to search"
                         }
                    , Input.text
@@ -176,11 +212,19 @@ view model =
                         , label = Input.labelRight [] <| text "Fuzzy search"
                         }
                    ]
-                ++ case model.hits of
-                    NotAsked -> []
-                    Loading -> [text "Loading..."]
-                    Failure _ -> [text "ERROR"]
-                    Success hits -> List.map (Lazy.lazy viewHit) hits
+                ++ (case model.hits of
+                        NotAsked ->
+                            []
+
+                        Loading ->
+                            [ text "Loading..." ]
+
+                        Failure _ ->
+                            [ text "ERROR" ]
+
+                        Success hits ->
+                            List.map (Lazy.lazy viewHit) hits
+                   )
 
 
 viewHit : Result Json.Error Entry -> Element Msg
