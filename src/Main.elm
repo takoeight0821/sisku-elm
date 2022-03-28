@@ -177,20 +177,21 @@ onEnter msg =
 
 view : Model -> Html Msg
 view model =
-    layout [ padding 30 ] <|
-        column [ spacing 7, width fill ]
-            [ column [] <|
-                List.map
-                    (\projectId ->
-                        Input.checkbox []
-                            { onChange = Contains projectId
-                            , icon = Input.defaultCheckbox
-                            , checked = Maybe.withDefault False (Dict.get projectId model.projectIds)
-                            , label = Input.labelRight [] <| text projectId
-                            }
-                    )
-                    (Dict.keys model.projectIds)
-            , column [ width fill ]
+    let
+        projectIdList =
+            List.map
+                (\projectId ->
+                    Input.checkbox []
+                        { onChange = Contains projectId
+                        , icon = Input.defaultCheckbox
+                        , checked = Maybe.withDefault False (Dict.get projectId model.projectIds)
+                        , label = Input.labelRight [] <| text projectId
+                        }
+                )
+                (Dict.keys model.projectIds)
+
+        searchForm =
+            column [ width fill ]
                 [ Input.text
                     [ Input.focusedOnLoad, onEnter EnterWasPressed ]
                     { onChange = ChangeQuery
@@ -212,6 +213,11 @@ view model =
                     , label = Input.labelRight [] <| text "Fuzzy search"
                     }
                 ]
+    in
+    layout [ padding 30 ] <|
+        column [ spacing 7, width fill ]
+            [ column [] projectIdList
+            , searchForm
             , case model.hits of
                 NotAsked ->
                     text ""
@@ -223,7 +229,7 @@ view model =
                     text "ERROR"
 
                 Success hits ->
-                    column [ width fill ] <| List.map (Lazy.lazy viewHit) hits
+                    column [ width fill ] <| List.map (Lazy.lazy viewHit) <| List.take 50 hits
             ]
 
 
