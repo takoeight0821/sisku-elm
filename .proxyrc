@@ -1,8 +1,8 @@
 {
-	"/api": {
-		"target": "http://localhost:9200/",
-		"pathRewrite": {
-			"^/api": ""
-		}
+	"/hovercraft": {
+		"target": "http://127.0.0.1:8081"
+	},
+	"/search": {
+		"target": "http://127.0.0.1:8081"
 	}
 }
