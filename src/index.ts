@@ -54,6 +54,6 @@ app.ports.requestSearch.subscribe(function({ placeholder, isFuzzMode, projectIds
 				console.log("search", res);
 				return res;
 			})
-			.then(res => app.ports.searchReceiver.send([res.query, res.results.map((r: [Entry, number]) => { return { "hit": r[0], "score": r[1] } })]))
+			.then(res => app.ports.searchReceiver.send([res.query, res.results]))
 	}
 });
