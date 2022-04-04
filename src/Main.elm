@@ -9,7 +9,8 @@ import Element.Lazy as Lazy
 import Hovercraft exposing (Entry, entryDecoder)
 import Html exposing (Html)
 import Html.Events
-import Json.Decode as Json
+import Json.Decode as Json exposing (float, succeed)
+import Json.Decode.Pipeline exposing (required)
 import Markdown
 import RemoteData exposing (RemoteData(..))
 
@@ -39,7 +40,7 @@ type alias Model =
     , query : String
     , isFuzzMode : Bool
     , placeholder : String
-    , hits : RemoteData () (List (Result Json.Error Entry))
+    , hits : RemoteData () (List (Result Json.Error ( Entry, Float )))
     }
 
 
@@ -49,7 +50,7 @@ type Msg
     | ChangePlaceholder String
     | Contains String Bool
     | EnterWasPressed
-    | RecvSearch String (List (Result Json.Error Entry))
+    | RecvSearch String (List (Result Json.Error ( Entry, Float )))
     | RecvProjectIds (List String)
 
 
@@ -153,7 +154,19 @@ update msg model =
 subscriptions : Model -> Sub Msg
 subscriptions _ =
     Sub.batch
-        [ searchReceiver (\( query, hits ) -> RecvSearch query (List.map (Json.decodeValue entryDecoder) hits))
+        [ searchReceiver
+            (\( query, hits ) ->
+                RecvSearch query
+                    (List.map
+                        (Json.decodeValue
+                            (succeed Tuple.pair
+                                |> required "hit" entryDecoder
+                                |> required "score" float
+                            )
+                        )
+                        <| List.take 50 hits
+                    )
+            )
         , projectIdsReceiver RecvProjectIds
         ]
 
@@ -229,21 +242,21 @@ view model =
                     text "ERROR"
 
                 Success hits ->
-                    column [ width fill ] <| List.map (Lazy.lazy viewHit) <| List.take 50 hits
+                    column [ width fill ] <| List.map (Lazy.lazy viewHit) hits
             ]
 
 
-viewHit : Result Json.Error Entry -> Element Msg
+viewHit : Result Json.Error (Entry, Float) -> Element Msg
 viewHit hit =
     hit
         |> Result.mapError (Json.errorToString >> text)
         |> Result.andThen
-            (\entry ->
-                Ok ( entry.projectId, entry.hover.contents.value )
+            (\(entry, score) ->
+                Ok ( entry.projectId, entry.hover.contents.value, score )
             )
         |> Result.andThen
-            (\( projectId, markdown ) ->
-                Ok <| column [] [ html (Markdown.toHtml [] markdown), text projectId ]
+            (\( projectId, markdown, score ) ->
+                Ok <| column [] [ html (Markdown.toHtml [] markdown), text projectId, text ("Distance: " ++ String.fromFloat score) ]
             )
         |> (\r ->
                 case r of

@@ -34,7 +34,7 @@ fetch('/hovercraft')
 		app.ports.projectIdsReceiver.send(projectIds);
 	});
 
-app.ports.requestSearch.subscribe(function ({ placeholder, isFuzzMode, projectIds, query }) {
+app.ports.requestSearch.subscribe(function({ placeholder, isFuzzMode, projectIds, query }) {
 	console.log("requestSearch", isFuzzMode, query);
 
 	const projectIdParams = projectIds.map(projectId => `projectIds[]=${projectId}`).join('&');
@@ -42,7 +42,10 @@ app.ports.requestSearch.subscribe(function ({ placeholder, isFuzzMode, projectId
 	if (isFuzzMode) {
 		const rawResults = fuse.search(query);
 		console.log("rawResults", rawResults);
-		const results = rawResults.map(entry => entry.item).filter(entry => projectIds.includes(entry.projectId));
+		const results: { hit: Entry, score: number }[] = rawResults
+			.map(entry => entry.item)
+			.filter(entry => projectIds.includes(entry.projectId))
+			.map(entry => { return { "hit": entry, "score": 0 } });
 		app.ports.searchReceiver.send([query, results]);
 	} else {
 		fetch('/search?placeholder=' + placeholder + '&' + projectIdParams + '&q=' + query)
@@ -51,6 +54,6 @@ app.ports.requestSearch.subscribe(function ({ placeholder, isFuzzMode, projectId
 				console.log("search", res);
 				return res;
 			})
-			.then(res => app.ports.searchReceiver.send([res.query, res.results]))
+			.then(res => app.ports.searchReceiver.send([res.query, res.results.map((r: [Entry, number]) => { return { "hit": r[0], "score": r[1] } })]))
 	}
 });
