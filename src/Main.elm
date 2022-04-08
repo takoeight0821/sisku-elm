@@ -4,6 +4,7 @@ import Browser
 import Dict as Dict exposing (Dict)
 import Element exposing (..)
 import Element.Border as Border
+import Element.Font as Font
 import Element.Input as Input
 import Element.Lazy as Lazy
 import Hovercraft exposing (Entry, entryDecoder)
@@ -12,6 +13,7 @@ import Html.Events
 import Json.Decode as Json exposing (float, succeed)
 import Json.Decode.Pipeline exposing (required)
 import Markdown
+import Paginate exposing (PaginatedList)
 import RemoteData exposing (RemoteData(..))
 
 
@@ -40,7 +42,7 @@ type alias Model =
     , query : String
     , isFuzzMode : Bool
     , placeholder : String
-    , hits : RemoteData () (List (Result Json.Error ( Entry, Float )))
+    , hits : RemoteData () (PaginatedList (Result Json.Error ( Entry, Float )))
     }
 
 
@@ -52,6 +54,12 @@ type Msg
     | EnterWasPressed
     | RecvSearch String (List (Result Json.Error ( Entry, Float )))
     | RecvProjectIds (List String)
+      -- for pagination
+    | First
+    | Prev
+    | Next
+    | Last
+    | GoTo Int
 
 
 init : () -> ( Model, Cmd Msg )
@@ -135,7 +143,7 @@ update msg model =
         RecvSearch query hits ->
             if query == model.query then
                 ( { model
-                    | hits = Success hits
+                    | hits = Success (Paginate.fromList 10 hits)
                   }
                 , Cmd.none
                 )
@@ -149,6 +157,21 @@ update msg model =
               }
             , Cmd.none
             )
+
+        First ->
+            ( { model | hits = RemoteData.map Paginate.first model.hits }, Cmd.none )
+
+        Prev ->
+            ( { model | hits = RemoteData.map Paginate.prev model.hits }, Cmd.none )
+
+        Next ->
+            ( { model | hits = RemoteData.map Paginate.next model.hits }, Cmd.none )
+
+        Last ->
+            ( { model | hits = RemoteData.map Paginate.last model.hits }, Cmd.none )
+
+        GoTo index ->
+            ( { model | hits = RemoteData.map (Paginate.goTo index) model.hits }, Cmd.none )
 
 
 subscriptions : Model -> Sub Msg
@@ -164,7 +187,8 @@ subscriptions _ =
                                 |> required "score" float
                             )
                         )
-                        <| List.take 50 hits
+                     <|
+                        List.take 50 hits
                     )
             )
         , projectIdsReceiver RecvProjectIds
@@ -226,6 +250,29 @@ view model =
                     , label = Input.labelRight [] <| text "Fuzzy search"
                     }
                 ]
+
+        prevButtons =
+            [ Input.button [ Border.width 2 ] { onPress = Just First, label = text "<<" }
+            , Input.button [ Border.width 2 ] { onPress = Just Prev, label = text "<" }
+            ]
+
+        nextButtons =
+            [ Input.button [ Border.width 2 ] { onPress = Just Next, label = text ">" }
+            , Input.button [ Border.width 2 ] { onPress = Just Last, label = text ">>" }
+            ]
+
+        pagerButtonView index isActive =
+            Input.button
+                [ if isActive then
+                    Font.bold
+
+                  else
+                    Font.regular
+                , Border.width 2
+                ]
+                { onPress = Just <| GoTo index
+                , label = text <| String.fromInt index
+                }
     in
     layout [ padding 30 ] <|
         column [ spacing 7, width fill ]
@@ -242,16 +289,18 @@ view model =
                     text "ERROR"
 
                 Success hits ->
-                    column [ width fill ] <| List.map (Lazy.lazy viewHit) hits
+                    column [ width fill ] <|
+                        List.map (Lazy.lazy viewHit) (Paginate.page hits)
+                            ++ [ row [ spacing 2 ] <| prevButtons ++ Paginate.pager pagerButtonView hits ++ nextButtons ]
             ]
 
 
-viewHit : Result Json.Error (Entry, Float) -> Element Msg
+viewHit : Result Json.Error ( Entry, Float ) -> Element Msg
 viewHit hit =
     hit
         |> Result.mapError (Json.errorToString >> text)
         |> Result.andThen
-            (\(entry, score) ->
+            (\( entry, score ) ->
                 Ok ( entry.projectId, entry.hover.contents.value, score )
             )
         |> Result.andThen
