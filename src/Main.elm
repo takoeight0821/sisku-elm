@@ -51,7 +51,6 @@ type Msg
     | FuzzMode Bool
     | ChangePlaceholder String
     | Contains String Bool
-    | EnterWasPressed
     | RecvSearch String (List (Result Json.Error ( Entry, Float )))
     | RecvProjectIds (List String)
       -- for pagination
@@ -98,10 +97,19 @@ update msg model =
         ChangeQuery newQuery ->
             let
                 newModel =
-                    { model | query = newQuery }
+                    { model
+                        | query = newQuery
+                        , hits =
+                            case model.hits of
+                                NotAsked ->
+                                    Loading
+
+                                _ ->
+                                    model.hits
+                    }
             in
             ( newModel
-            , Cmd.none
+            , requestSearch (requestSearchParam newModel)
             )
 
         FuzzMode flag ->
@@ -126,15 +134,6 @@ update msg model =
             let
                 newModel =
                     { model | projectIds = Dict.insert projectId flag model.projectIds, hits = Loading }
-            in
-            ( newModel
-            , requestSearch (requestSearchParam newModel)
-            )
-
-        EnterWasPressed ->
-            let
-                newModel =
-                    { model | hits = Loading }
             in
             ( newModel
             , requestSearch (requestSearchParam newModel)
@@ -230,7 +229,7 @@ view model =
         searchForm =
             column [ width fill ]
                 [ Input.text
-                    [ Input.focusedOnLoad, onEnter EnterWasPressed ]
+                    [ Input.focusedOnLoad ]
                     { onChange = ChangeQuery
                     , text = model.query
                     , placeholder = Just <| Input.placeholder [] <| text "Type here and press enter"
