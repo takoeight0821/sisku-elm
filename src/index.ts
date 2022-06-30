@@ -7,7 +7,7 @@ var app = Elm.Main.init({ node: document.getElementById("root") });
 
 const fuseOptions = {
 	includeScore: true,
-	sortFn: (a: { score: number; }, b: { score: number; }) => { return b.score - a.score },
+	// sortFn: (a: { score: number; }, b: { score: number; }) => { return a.score - b.score },
 	keys: ['hover.contents.value'],
 };
 
@@ -43,9 +43,8 @@ app.ports.requestSearch.subscribe(function({ placeholder, isFuzzMode, projectIds
 		const rawResults = fuse.search(query);
 		console.log("rawResults", rawResults);
 		const results: { hit: Entry, score: number }[] = rawResults
-			.map(entry => entry.item)
-			.filter(entry => projectIds.includes(entry.projectId))
-			.map(entry => { return { "hit": entry, "score": 0 } });
+			.filter(entry => projectIds.includes(entry.item.projectId))
+			.map(entry => { return { "hit": entry.item, "score": entry.score } });
 		app.ports.searchReceiver.send([query, results]);
 	} else {
 		fetch('/search?placeholder=' + placeholder + '&' + projectIdParams + '&q=' + query)
