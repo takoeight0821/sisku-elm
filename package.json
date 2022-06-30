@@ -1,8 +1,8 @@
 {
   "devDependencies": {
-    "@parcel/transformer-elm": "^2.2.1",
+    "@parcel/transformer-elm": "^2.6.2",
     "elm": "^0.19.1-5",
-    "parcel": "^2.2.1"
+    "parcel": "^2.6.2"
   },
   "dependencies": {
     "flexsearch": "^0.7.21",
