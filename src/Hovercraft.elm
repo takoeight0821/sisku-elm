@@ -23,8 +23,6 @@ type alias Entry =
     , projectId : String
     , hover : Hover
     , definitions : List Definition
-    , moniker : List Moniker
-    , rootPath : String
     }
 
 
@@ -64,16 +62,6 @@ type Definition
         , targetSelectionRange : Range
         }
 
-
-type alias Moniker =
-    { scheme : String
-    , identifier : String
-    , unique : String
-    , kind : Maybe String
-    }
-
-
-
 -- Decoders
 
 
@@ -103,8 +91,6 @@ entryDecoder =
         |> required "projectId" string
         |> required "hover" hoverDecoder
         |> optional "definitions" (list definitionDecoder) []
-        |> optional "moniker" (list monikerDecoder) []
-        |> optional "rootPath" string ""
 
 
 hoverDecoder : Decoder Hover
@@ -154,12 +140,3 @@ locationLinkDecoder =
         |> required "targetUri" string
         |> required "targetRange" rangeDecoder
         |> required "targetSelectionRange" rangeDecoder
-
-
-monikerDecoder : Decoder Moniker
-monikerDecoder =
-    succeed Moniker
-        |> required "scheme" string
-        |> required "identifier" string
-        |> required "unique" string
-        |> optional "kind" (Json.map Just string) Nothing

@@ -18,6 +18,4 @@ interface Entry {
 	projectId: string;
 	hover: lsp.Hover;
 	definition: { uri: lsp.URI, range: lsp.Range };
-	moniker: any;
-	rootPath: string;
 }
