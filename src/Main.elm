@@ -187,8 +187,7 @@ subscriptions _ =
                                 |> required "score" float
                             )
                         )
-                     <|
-                        List.take 50 hits
+                        hits
                     )
             )
         , projectIdsReceiver RecvProjectIds
